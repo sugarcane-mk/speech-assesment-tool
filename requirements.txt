@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+praat-parselmouth
+pyloudnorm
+numpy
+scipy
+python-multipart

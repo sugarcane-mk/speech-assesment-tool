@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Speech Assessment — Final</title>
+
+    <!-- Plotly -->
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+
+    <style>
+      body {
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu,
+          "Helvetica Neue", Arial;
+        padding: 18px;
+        background: #f6f8fa;
+      }
+      .controls {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      button {
+        padding: 8px 12px;
+        border-radius: 6px;
+        border: 1px solid #ccc;
+        background: white;
+        cursor: pointer;
+      }
+      .meter {
+        height: 18px;
+        width: 240px;
+        background: #e6eef6;
+        border-radius: 6px;
+        overflow: hidden;
+        border: 1px solid #c8d7ea;
+      }
+      .meter-fill {
+        height: 100%;
+        width: 0%;
+        background: linear-gradient(90deg, #4cc9f0, #4361ee);
+      }
+      .layout {
+        display: flex;
+        gap: 20px;
+      }
+      .left {
+        width: 260px;
+      }
+      .right {
+        flex: 1;
+      }
+      .pane {
+        background: white;
+        border-radius: 8px;
+        padding: 10px;
+        margin-bottom: 12px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      }
+      .pane h4 {
+        margin: 0 0 8px 0;
+        font-size: 14px;
+      }
+      .feature-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .feature-item {
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid #ddd;
+        background: #fff;
+        cursor: pointer;
+      }
+      .feature-item.active {
+        background: #eef6ff;
+        border-color: #9ecbff;
+      }
+      .note {
+        font-size: 13px;
+        color: #555;
+      }
+      #annotations {
+        max-height: 220px;
+        overflow: auto;
+        border: 1px solid #eee;
+        padding: 8px;
+        border-radius: 6px;
+        background: #fafafa;
+      }
+      .anno-item {
+        padding: 6px;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 13px;
+      }
+
+      /* === Processing Overlay === */
+      #processingOverlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.85);
+        display: none;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+      }
+
+      .pulse-wave {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: #4361ee;
+        animation: pulse 1.2s infinite ease-in-out;
+      }
+
+      @keyframes pulse {
+        0% {
+          transform: scale(0.8);
+          opacity: 0.6;
+        }
+        50% {
+          transform: scale(1.2);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(0.8);
+          opacity: 0.6;
+        }
+      }
+
+      .processing-text {
+        margin-top: 14px;
+        font-size: 22px;
+        font-weight: 600;
+        color: #333;
+      }
+    </style>
+  </head>
+
+  <body>
+    <!-- PROCESSING OVERLAY -->
+    <div id="processingOverlay">
+      <div class="pulse-wave"></div>
+      <div class="processing-text">Processing…</div>
+    </div>
+
+    <h2>Speech Assessment — Final</h2>
+
+    <div class="controls">
+      <button id="startBtn">Start Recording</button>
+      <button id="stopBtn" disabled>Stop</button>
+
+      <div style="display: flex; flex-direction: column">
+        <div class="note">Live loudness</div>
+        <div class="meter" aria-hidden>
+          <div id="meterFill" class="meter-fill"></div>
+        </div>
+      </div>
+
+      <div class="note" id="status">Idle</div>
+    </div>
+
+    <div class="layout">
+      <!-- LEFT SIDE -->
+      <div class="left">
+        <div class="pane">
+          <h4>Features</h4>
+          <div class="feature-list" id="featureList">
+            <div class="feature-item active" data-feature="plot-waveform">
+              Waveform
+            </div>
+            <div class="feature-item active" data-feature="plot-rms">
+              Short-time Loudness (RMS)
+            </div>
+            <div class="feature-item" data-feature="plot-pitch">Pitch (Hz)</div>
+            <div class="feature-item" data-feature="plot-jitter">Jitter</div>
+            <div class="feature-item" data-feature="plot-shimmer">Shimmer</div>
+            <div class="feature-item" data-feature="plot-speechRate">
+              Speech Rate
+            </div>
+            <div class="feature-item" data-feature="plot-zcr">
+              Zero Crossing Rate
+            </div>
+            <div class="feature-item" data-feature="plot-spectralCentroid">
+              Spectral Centroid
+            </div>
+            <div class="feature-item active" data-feature="plot-loudness">
+              Loudness
+            </div>
+          </div>
+        </div>
+
+        <div class="pane">
+          <h4>Actions</h4>
+          <div style="display: flex; flex-direction: column; gap: 6px">
+            <button id="downloadWav" disabled>Download WAV</button>
+            <button id="playBack" disabled>Playback</button>
+          </div>
+        </div>
+
+        <div class="pane">
+          <h4>Annotations / Clicks</h4>
+          <div id="annotations">
+            <div class="note">
+              Click any point on plots to add an annotation.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT SIDE -->
+      <div class="right">
+        <div id="panes">
+          <div id="plot-waveform" style="height: 200px"></div>
+          <div id="plot-rms" style="height: 200px"></div>
+          <div id="plot-pitch" style="height: 200px"></div>
+          <div id="plot-jitter" style="height: 200px"></div>
+          <div id="plot-shimmer" style="height: 200px"></div>
+          <div id="plot-speechRate" style="height: 200px"></div>
+          <div id="plot-zcr" style="height: 200px"></div>
+          <div id="plot-spectralCentroid" style="height: 200px"></div>
+          <div id="plot-loudness" style="height: 200px"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ✅ Correct script load -->
+    <script src="main.js"></script>
+  </body>
+</html>
