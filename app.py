@@ -13,6 +13,108 @@ import parselmouth
 from parselmouth.praat import call
 from scipy.signal import find_peaks
 
+import base64
+import time
+import wave
+from io import BytesIO
+
+import matplotlib.pyplot as plt
+from scipy.signal import resample
+
+import webrtcvad
+import torch
+from transformers import WhisperProcessor, WhisperForConditionalGeneration
+
+
+# -----------------------------------------------------------
+# Load Whisper model
+# -----------------------------------------------------------
+processor = WhisperProcessor.from_pretrained("local_model/processor")
+model = WhisperForConditionalGeneration.from_pretrained("local_model/model").to("cpu").eval()
+
+# -----------------------------------------------------------
+# Tamil normalization
+# -----------------------------------------------------------
+tamil_to_latin = {
+    "பா": "pa", "டா": "ta", "கா": "ka"
+}
+
+def normalize_syllables(text):
+    patterns = {
+        "பாட்டாக": ["பா", "டா", "கா"],
+        "பாட்டா": ["பா", "டா"],
+        "பாக்கா": ["பா", "கா"],
+        "காப்பா": ["கா", "பா"],
+        "டாக்கா": ["டா", "கா"],
+        "பா": ["பா"], "ப": ["பா"], "ப்": ["பா"], "ப்ப": ["பா"],
+        "ட்டா": ["டா"], "ட்": ["டா"], "ட": ["டா"], "டா": ["டா"],
+        "க்கா": ["கா"], "க்": ["கா"], "க": ["கா"], "கா": ["கா"],
+    }
+    out = []
+    i = 0
+    while i < len(text):
+        for key in sorted(patterns, key=lambda x: -len(x)):
+            if text.startswith(key, i):
+                out.extend(patterns[key])
+                i += len(key)
+                break
+        else:
+            i += 1
+    return out
+
+# -----------------------------------------------------------
+# VAD
+# -----------------------------------------------------------
+def get_vad_segments(audio, sr):
+    vad = webrtcvad.Vad(2)
+    frame_ms = 30
+    frame_len = int(sr * frame_ms / 1000)
+
+    bytes_data = (audio * 32768).astype(np.int16).tobytes()
+    voiced = []
+
+    for i in range(0, len(bytes_data), frame_len * 2):
+        frame = bytes_data[i:i + frame_len * 2]
+        if len(frame) < frame_len * 2:
+            break
+        voiced.append(vad.is_speech(frame, sr))
+
+    segments = []
+    start = None
+    for i, v in enumerate(voiced):
+        if v and start is None:
+            start = i
+        elif not v and start is not None:
+            segments.append((start * 0.03, i * 0.03))
+            start = None
+
+    if start is not None:
+        segments.append((start * 0.03, len(voiced) * 0.03))
+
+    return segments
+
+# -----------------------------------------------------------
+# Waveform plot → Base64
+# -----------------------------------------------------------
+def make_waveform(audio, sr, syllables, timestamps):
+    times = np.linspace(0, len(audio)/sr, len(audio))
+
+    plt.figure(figsize=(12, 3))
+    plt.plot(times, audio)
+
+    for t, syl in zip(timestamps, syllables):
+        plt.axvline(t)
+        plt.text(t, 0.6, tamil_to_latin.get(syl, syl), ha="center")
+
+    buf = BytesIO()
+    plt.tight_layout()
+    plt.savefig(buf, format="png")
+    plt.close()
+    buf.seek(0)
+
+    return base64.b64encode(buf.read()).decode()
+
+
 
 # ---------------------------------------------------------
 # ✅ FastAPI Setup
@@ -242,6 +344,42 @@ async def analyze(file: UploadFile = File(...)):
         except: pass
 
     return features
+
+
+@app.post("/process-pata-ka")
+async def process_pataka(file: UploadFile = File(...)):
+    # -------------------------------------------
+    # Read bytes
+    # -------------------------------------------
+    audio_bytes = await file.read()
+
+    audio_48k, sr = sf.read(BytesIO(audio_bytes))
+    if sr != 48000:
+        raise ValueError("Client must record at 48kHz.")
+
+    audio_16k = resample(audio_48k, int(len(audio_48k) * 16000 / 48000))
+    duration = len(audio_16k) / 16000
+
+    inputs = processor(audio_16k, sampling_rate=16000, return_tensors="pt")
+    with torch.no_grad():
+        ids = model.generate(inputs.input_features)
+    text = processor.batch_decode(ids, skip_special_tokens=True)[0]
+
+    syllables = normalize_syllables(text)
+
+    segments = get_vad_segments(audio_16k, 16000)
+    if len(segments) >= len(syllables):
+        timestamps = [(s+e)/2 for s, e in segments[:len(syllables)]]
+    else:
+        timestamps = np.linspace(0.1, duration - 0.1, len(syllables))
+
+    png_b64 = make_waveform(audio_16k, 16000, syllables, timestamps)
+
+    return {
+        "syllables": [{"text": s, "time": round(t, 2)} for s, t in zip(syllables, timestamps)],
+        "duration": round(duration, 2),
+        "waveform_png": png_b64
+    }
 
 
 # ---------------------------------------------------------

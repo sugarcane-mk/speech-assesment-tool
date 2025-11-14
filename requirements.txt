@@ -5,3 +5,11 @@ pyloudnorm
 numpy
 scipy
 python-multipart
+aiohttp
+websockets
+transformers
+torch
+torchaudio
+matplotlib
+soundfile
+webrtcvad
