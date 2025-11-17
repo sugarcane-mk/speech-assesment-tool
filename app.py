@@ -41,6 +41,7 @@ tamil_to_latin = {
 
 def normalize_syllables(text):
     patterns = {
+        "பாட்டாக்கா" : ["பா", "டா", "கா"],
         "பாட்டாக": ["பா", "டா", "கா"],
         "பாட்டா": ["பா", "டா"],
         "பாக்கா": ["பா", "கா"],
@@ -53,7 +54,8 @@ def normalize_syllables(text):
     out = []
     i = 0
     while i < len(text):
-        for key in sorted(patterns, key=lambda x: -len(x)):
+        # for key in sorted(patterns, key=lambda x: -len(x)):
+        for key in patterns:
             if text.startswith(key, i):
                 out.extend(patterns[key])
                 i += len(key)

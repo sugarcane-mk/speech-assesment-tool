@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Speec Assesment Tool</title>
+    <title>🎙️ Speech Assesment Tool</title>
 
     <!-- Plotly -->
     <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
@@ -14,6 +14,12 @@
           "Helvetica Neue", Arial;
         padding: 18px;
         background: #f6f8fa;
+      }
+      .header {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 12px;
       }
       .controls {
         display: flex;
@@ -146,14 +152,17 @@
       <div class="pulse-wave"></div>
       <div class="processing-text">Processing…</div>
     </div>
-
-    <h2>Speech Assessment Tool</h2>
+    <div class="header">
+      <img src="ssn.png" height="20px" />
+      <h2>Speech Assessment Tool - Prototype</h2>
+    </div>
 
     <div class="controls">
       <button id="startBtn">Start Recording</button>
       <button id="stopBtn" disabled>Stop</button>
       <!-- <button id="patakaBtn">🎙️ Analyse Pa-Ta-Ka</button>
       <canvas id="waveCanvas" width="600" height="100"></canvas> -->
+      <button id="patakaBtn">🎤 Start Pa-Ta-Ka</button>
       <div style="display: flex; flex-direction: column">
         <div class="note">Live loudness</div>
         <div class="meter" aria-hidden>
@@ -161,7 +170,6 @@
         </div>
       </div>
       <div class="note" id="status">Idle</div>
-      <button id="patakaBtn">🎤 Analyse Pa-Ta-Ka</button>
       <div id="prompt"></div>
       <canvas id="waveCanvas" width="600" height="150"></canvas>
       <div id="syllables"></div>

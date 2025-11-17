@@ -22,8 +22,10 @@ let rafId = null;
 let sampleRate = 48000;
 let recordedFloat32 = null;
 
-let patakaRecorder;
+let patakaRecorder = null;
 let audioChunks = [];
+let recordingStream = null;
+let isRecording = false;
 
 // Helpers
 function showProcessing() {
@@ -391,31 +393,78 @@ featureList.addEventListener('click', e => {
 });
 
 // pa-ta-ka logic
-document.getElementById("patakaBtn").addEventListener("click", startRecordingPataka);
+// document.getElementById("patakaBtn").addEventListener("click", startRecordingPataka);
+
+// async function startRecordingPataka() {
+//   document.getElementById("prompt").innerText = "Requesting microphone...";
+
+//   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+//   document.getElementById("prompt").innerText = "Recording... Say Pa-Ta-Ka";
+  
+//   audioChunks = [];
+//   patakaRecorder = new MediaRecorder(stream);
+
+//   patakaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+//   patakaRecorder.onstop = () => {
+//     document.getElementById("prompt").innerText = "Processing...";
+
+//     const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+//     convertBlobToWavAndUpload(audioBlob);
+//   };
+
+//   patakaRecorder.start();
+
+//   // Auto-stop after 3 seconds
+//   setTimeout(() => patakaRecorder.stop(), 3000);
+// }
+document.getElementById("patakaBtn").addEventListener("click", toggleRecording);
+
+async function toggleRecording() {
+  if (!isRecording) {
+    startRecordingPataka();
+  } else {
+    stopRecordingPataka();
+  }
+}
 
 async function startRecordingPataka() {
   document.getElementById("prompt").innerText = "Requesting microphone...";
 
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true });
 
   document.getElementById("prompt").innerText = "Recording... Say Pa-Ta-Ka";
-  
+
+  const btn = document.getElementById("patakaBtn");
+  btn.textContent = "⛔ Stop";
+
   audioChunks = [];
-  patakaRecorder = new MediaRecorder(stream);
+  patakaRecorder = new MediaRecorder(recordingStream);
+  isRecording = true;
 
   patakaRecorder.ondataavailable = e => audioChunks.push(e.data);
 
   patakaRecorder.onstop = () => {
     document.getElementById("prompt").innerText = "Processing...";
+    btn.textContent = "🎤 Start Pa-Ta-Ka";
+    isRecording = false;
 
     const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
     convertBlobToWavAndUpload(audioBlob);
+
+    // close the mic
+    recordingStream.getTracks().forEach(t => t.stop());
   };
 
   patakaRecorder.start();
+}
 
-  // Auto-stop after 3 seconds
-  setTimeout(() => patakaRecorder.stop(), 3000);
+function stopRecordingPataka() {
+  if (patakaRecorder && patakaRecorder.state === "recording") {
+    patakaRecorder.stop();
+    document.getElementById("prompt").innerText = "Stopping...";
+  }
 }
 
 async function convertBlobToWavAndUpload(blob) {
@@ -532,5 +581,7 @@ async function uploadToServer(wavBlob) {
     document.getElementById("prompt").innerText = "Error processing audio.";
   }
 }
+
+
 
 console.log("main.js loaded");
