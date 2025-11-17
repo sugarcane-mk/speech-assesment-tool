@@ -120,10 +120,15 @@ def make_waveform(audio, sr, syllables, timestamps):
 # ✅ FastAPI Setup
 # ---------------------------------------------------------
 app = FastAPI()
-
+origins = [
+    "http://127.0.0.1:5500",
+    "http://localhost:5500",
+    "http://localhost:3000",    # if using React/Vite
+    "http://127.0.0.1:3000"
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -364,8 +369,10 @@ async def process_pataka(file: UploadFile = File(...)):
     with torch.no_grad():
         ids = model.generate(inputs.input_features)
     text = processor.batch_decode(ids, skip_special_tokens=True)[0]
+    print("Recogonized text: ",text)
 
     syllables = normalize_syllables(text)
+    print("All syllables", syllables)
 
     segments = get_vad_segments(audio_16k, 16000)
     if len(segments) >= len(syllables):
@@ -374,13 +381,14 @@ async def process_pataka(file: UploadFile = File(...)):
         timestamps = np.linspace(0.1, duration - 0.1, len(syllables))
 
     png_b64 = make_waveform(audio_16k, 16000, syllables, timestamps)
-
-    return {
+    out={
         "syllables": [{"text": s, "time": round(t, 2)} for s, t in zip(syllables, timestamps)],
         "duration": round(duration, 2),
         "waveform_png": png_b64
     }
+    print(out)
 
+    return out
 
 # ---------------------------------------------------------
 # RUN

@@ -22,6 +22,9 @@ let rafId = null;
 let sampleRate = 48000;
 let recordedFloat32 = null;
 
+let patakaRecorder;
+let audioChunks = [];
+
 // Helpers
 function showProcessing() {
   if (processingOverlay) processingOverlay.style.display = "flex";
@@ -386,5 +389,148 @@ featureList.addEventListener('click', e => {
     }
   }
 });
+
+// pa-ta-ka logic
+document.getElementById("patakaBtn").addEventListener("click", startRecordingPataka);
+
+async function startRecordingPataka() {
+  document.getElementById("prompt").innerText = "Requesting microphone...";
+
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+  document.getElementById("prompt").innerText = "Recording... Say Pa-Ta-Ka";
+  
+  audioChunks = [];
+  patakaRecorder = new MediaRecorder(stream);
+
+  patakaRecorder.ondataavailable = e => audioChunks.push(e.data);
+
+  patakaRecorder.onstop = () => {
+    document.getElementById("prompt").innerText = "Processing...";
+
+    const audioBlob = new Blob(audioChunks, { type: "audio/webm" });
+    convertBlobToWavAndUpload(audioBlob);
+  };
+
+  patakaRecorder.start();
+
+  // Auto-stop after 3 seconds
+  setTimeout(() => patakaRecorder.stop(), 3000);
+}
+
+async function convertBlobToWavAndUpload(blob) {
+  const arrayBuffer = await blob.arrayBuffer();
+  const audioCtx = new AudioContext({ sampleRate: 48000 });
+  const decoded = await audioCtx.decodeAudioData(arrayBuffer);
+
+  // PCM float → WAV (16-bit)
+  const wavBlob = pcmToWavBlob(decoded);
+
+  uploadToServer(wavBlob);
+}
+
+function pcmToWavBlob(audioBuffer) {
+  const numOfChannels = audioBuffer.numberOfChannels;
+  const sampleRate = audioBuffer.sampleRate;
+  const bitDepth = 16;
+
+  let samples;
+  if (numOfChannels === 2) {
+    const left = audioBuffer.getChannelData(0);
+    const right = audioBuffer.getChannelData(1);
+    const length = left.length + right.length;
+    const interleaved = new Float32Array(length);
+
+    for (let i = 0; i < left.length; i++) {
+      interleaved[i * 2] = left[i];
+      interleaved[i * 2 + 1] = right[i];
+    }
+    samples = interleaved;
+  } else {
+    samples = audioBuffer.getChannelData(0);
+  }
+
+  const wavBuffer = encodeWAV(samples, sampleRate, numOfChannels, bitDepth);
+  return new Blob([wavBuffer], { type: "audio/wav" });
+}
+
+function encodeWAV(samples, sampleRate, numChannels, bitDepth) {
+  const bytesPerSample = bitDepth / 8;
+  const blockAlign = numChannels * bytesPerSample;
+  const buffer = new ArrayBuffer(44 + samples.length * bytesPerSample);
+  const view = new DataView(buffer);
+
+  writeString(view, 0, "RIFF");
+  view.setUint32(4, 36 + samples.length * bytesPerSample, true);
+  writeString(view, 8, "WAVE");
+
+  writeString(view, 12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true);
+  view.setUint16(22, numChannels, true);
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * blockAlign, true);
+  view.setUint16(32, blockAlign, true);
+  view.setUint16(34, bitDepth, true);
+
+  writeString(view, 36, "data");
+  view.setUint32(40, samples.length * bytesPerSample, true);
+
+  floatTo16BitPCM(view, 44, samples);
+
+  return buffer;
+}
+
+function writeString(view, offset, text) {
+  for (let i = 0; i < text.length; i++) {
+    view.setUint8(offset + i, text.charCodeAt(i));
+  }
+}
+
+function floatTo16BitPCM(view, offset, samples) {
+  for (let i = 0; i < samples.length; i++, offset += 2) {
+    let s = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(offset, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+  }
+}
+
+async function uploadToServer(wavBlob) {
+  const formData = new FormData();
+  formData.append("file", wavBlob, "recording.wav");
+
+  try {
+    const response = await fetch("http://localhost:8000/process-pata-ka", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await response.json();
+
+    document.getElementById("prompt").innerText = "Analysis Complete";
+
+    // Show syllables
+    const sDiv = document.getElementById("syllables");
+    sDiv.innerHTML = "";
+    data.syllables.forEach(syl => {
+      const p = document.createElement("p");
+      p.textContent = `${syl.text} — ${syl.time}s`;
+      sDiv.appendChild(p);
+    });
+
+    // Draw waveform PNG
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.getElementById("waveCanvas");
+      const ctx = canvas.getContext("2d");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    };
+    img.src = "data:image/png;base64," + data.waveform_png;
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById("prompt").innerText = "Error processing audio.";
+  }
+}
 
 console.log("main.js loaded");

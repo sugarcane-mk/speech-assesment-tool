@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Speech Assessment — Final</title>
+    <title>Speec Assesment Tool</title>
 
     <!-- Plotly -->
     <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
@@ -147,18 +147,13 @@
       <div class="processing-text">Processing…</div>
     </div>
 
-    <h2>Speech Assessment — Final</h2>
+    <h2>Speech Assessment Tool</h2>
 
     <div class="controls">
       <button id="startBtn">Start Recording</button>
       <button id="stopBtn" disabled>Stop</button>
       <!-- <button id="patakaBtn">🎙️ Analyse Pa-Ta-Ka</button>
       <canvas id="waveCanvas" width="600" height="100"></canvas> -->
-      <button id="patakaBtn">Analyse Pa-Ta-Ka</button>
-      <div id="prompt"></div>
-      <canvas id="waveCanvas" width="600" height="150"></canvas>
-      <div id="syllables"></div>
-
       <div style="display: flex; flex-direction: column">
         <div class="note">Live loudness</div>
         <div class="meter" aria-hidden>
@@ -166,6 +161,10 @@
         </div>
       </div>
       <div class="note" id="status">Idle</div>
+      <button id="patakaBtn">🎤 Analyse Pa-Ta-Ka</button>
+      <div id="prompt"></div>
+      <canvas id="waveCanvas" width="600" height="150"></canvas>
+      <div id="syllables"></div>
     </div>
 
     <div class="layout">
