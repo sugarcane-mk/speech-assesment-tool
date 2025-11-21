@@ -1,0 +1,57 @@
+body {
+    font-family: Arial, sans-serif;
+    background: #f2f2f2;
+    padding: 40px;
+}
+
+#container {
+    width: 480px;
+    margin: auto;
+    background: #fff;
+    padding: 25px;
+    border-radius: 12px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+#vowel {
+    width: 120px;
+    padding: 6px;
+    border-radius: 8px;
+    border: 1px solid #999;
+    margin: 10px 0 20px 0;
+}
+
+#recordBtn {
+    width: 200px;
+    padding: 12px;
+    background: #2466d1;
+    border: none;
+    color: white;
+    font-size: 16px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.25s;
+}
+
+#recordBtn.recording {
+    background: #d11f1f;
+}
+
+#status {
+    margin-top: 15px;
+    font-weight: bold;
+    color: #444;
+}
+
+#resultsBox {
+    background: #eee;
+    padding: 15px;
+    margin-top: 15px;
+    border-radius: 10px;
+    font-family: monospace;
+}
+
+#plot {
+    margin-top: 30px;
+    height: 400px;
+}

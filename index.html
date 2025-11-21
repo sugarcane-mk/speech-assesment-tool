@@ -15,12 +15,34 @@
         padding: 18px;
         background: #f6f8fa;
       }
+      select {
+        padding: 10px 14px;
+        font-size: 16px;
+        border: 2px solid #4a90e2;
+        border-radius: 8px;
+        background: #f7faff;
+        color: #333;
+        cursor: pointer;
+        outline: none;
+        transition: all 0.2s ease;
+      }
+
+      select:hover {
+        background: #e8f2ff;
+      }
+
+      select:focus {
+        border-color: #1a73e8;
+        box-shadow: 0px 0px 6px rgba(26, 115, 232, 0.4);
+      }
+
       .header {
         display: flex;
-        gap: 10px;
+        gap: 450px;
         align-items: center;
         margin-bottom: 12px;
       }
+
       .controls {
         display: flex;
         gap: 10px;
@@ -153,16 +175,27 @@
       <div class="processing-text">Processing…</div>
     </div>
     <div class="header">
-      <img src="ssn.png" height="20px" />
-      <h2>Speech Assessment Tool - Prototype</h2>
+      <img src="ssn.png" height="45px" />
+      <h1>Assistive speech Technologies</h1>
+      <img id="bashini" src="bashini.png" height="85px" />
     </div>
-
+    <h2>Speech Assessment Tool - Prototype</h2>
     <div class="controls">
       <button id="startBtn">Start Recording</button>
       <button id="stopBtn" disabled>Stop</button>
       <!-- <button id="patakaBtn">🎙️ Analyse Pa-Ta-Ka</button>
       <canvas id="waveCanvas" width="600" height="100"></canvas> -->
       <button id="patakaBtn">🎤 Start Pa-Ta-Ka</button>
+      <label>
+        Choose vowel:
+        <select id="vowel">
+          <option value="a">/a/</option>
+          <option value="i">/i/</option>
+          <option value="u">/u/</option>
+        </select>
+      </label>
+
+      <button id="recordBtn">🎙️ Record Vowel</button>
       <div style="display: flex; flex-direction: column">
         <div class="note">Live loudness</div>
         <div class="meter" aria-hidden>
@@ -171,8 +204,6 @@
       </div>
       <div class="note" id="status">Idle</div>
       <div id="prompt"></div>
-      <canvas id="waveCanvas" width="600" height="150"></canvas>
-      <div id="syllables"></div>
     </div>
 
     <div class="layout">
@@ -225,6 +256,9 @@
 
       <!-- RIGHT SIDE -->
       <div class="right">
+        <!-- <div id="vsa"></div> -->
+        <canvas id="waveCanvas" width="1000" height="200"></canvas>
+        <div id="syllables"></div>
         <div id="panes">
           <div id="plot-waveform" style="height: 200px"></div>
           <div id="plot-rms" style="height: 200px"></div>

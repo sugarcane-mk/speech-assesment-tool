@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Vowel Space Assessment</title>
+    <script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+
+  <body>
+    <div id="container">
+      <h2>Vowel Space Measurement</h2>
+
+      <label>Select vowel:</label>
+      <select id="vowel">
+        <option value="a">/a/</option>
+        <option value="i">/i/</option>
+        <option value="u">/u/</option>
+      </select>
+
+      <button id="recordBtn">🎙️ Start Recording</button>
+
+      <div id="status"></div>
+
+      <pre id="resultsBox">{}</pre>
+      <div id="plot"></div>
+    </div>
+
+    <script src="main.js"></script>
+  </body>
+</html>

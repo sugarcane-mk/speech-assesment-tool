@@ -1,14 +1,14 @@
 # app.py
 # FastAPI backend for speech feature extraction
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi.middleware.cors import CORSMiddleware # type: ignore
 import tempfile
 import subprocess
 import os
 import soundfile as sf
 import numpy as np
-import librosa
+import librosa # type: ignore
 import parselmouth
 from parselmouth.praat import call
 from scipy.signal import find_peaks
@@ -25,7 +25,8 @@ import webrtcvad
 import torch
 from transformers import WhisperProcessor, WhisperForConditionalGeneration
 
-
+import tempfile
+import shutil
 # -----------------------------------------------------------
 # Load Whisper model
 # -----------------------------------------------------------
@@ -126,7 +127,8 @@ origins = [
     "http://127.0.0.1:5500",
     "http://localhost:5500",
     "http://localhost:3000",    # if using React/Vite
-    "http://127.0.0.1:3000"
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5501"
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -391,6 +393,29 @@ async def process_pataka(file: UploadFile = File(...)):
     print(out)
 
     return out
+
+@app.post("/analyze_vowel")
+async def analyze_vowel(file: UploadFile, vowel: str = Form(...)):
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+
+    with open(temp_file.name, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    sound = parselmouth.Sound(temp_file.name)
+
+    formant_obj = call(sound, "To Formant (burg)", 0.0025, 5, 5500, 0.025, 50)
+
+    # measure at midpoint
+    duration = sound.duration
+    f1 = call(formant_obj, "Get value at time", 1, duration/2, "Hertz", "Linear")
+    f2 = call(formant_obj, "Get value at time", 2, duration/2, "Hertz", "Linear")
+
+    return {
+        "vowel": vowel,
+        "F1_Hz": f1,
+        "F2_Hz": f2
+    }
+
 
 # ---------------------------------------------------------
 # RUN

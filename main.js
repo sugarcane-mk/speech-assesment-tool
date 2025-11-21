@@ -27,6 +27,7 @@ let audioChunks = [];
 let recordingStream = null;
 let isRecording = false;
 
+
 // Helpers
 function showProcessing() {
   if (processingOverlay) processingOverlay.style.display = "flex";
@@ -283,7 +284,7 @@ function renderPlotsFromServer(json) {
   summary.innerHTML = `
     <strong>Summary</strong><br/><br/>
     <strong>Duration:</strong> ${json.duration?.toFixed?.(3) ?? "n/a"} s<br/>
-    <strong>Sample rate:</strong> ${json.sr ?? "n/a"}<br/>
+    <strong>Sampling rate:</strong> ${json.sr ?? "n/a"} Hz<br/>
     <strong>Speech rate:</strong> ${(json.speech_rate_sps ? (json.speech_rate_sps * 60).toFixed(1) : "n/a")} syl/min<br/>
     <strong>Jitter (local):</strong> ${json.jitter_local ?? "n/a"}<br/>
     <strong>Shimmer (local):</strong> ${json.shimmer_local ?? "n/a"}<br/>
@@ -308,7 +309,7 @@ function renderPlotsFromServer(json) {
   console.log(json)
   if (json.pitch.times && json.pitch.values) {
     createPane("plot-pitch", "Pitch (Hz)", 200);
-    Plotly.newPlot("plot-pitch", [{ x: json.pitch.times, y: json.pitch.values, mode: "lines" }], { margin: { t: 10 }, yaxis: { title: "Hz" } });
+    Plotly.newPlot("plot-pitch", [{ x: json.pitch.times, y: json.pitch.values, mode: "lines" }], { margin: { t: 10 }, xaxis: { title:"Time (sec)" }, yaxis: { title: "Pitch (Hz)" } });
     attachPlotlyClick("plot-pitch", "Pitch");
   }
 
@@ -316,7 +317,7 @@ function renderPlotsFromServer(json) {
   if (json.jitter && json.jitter.values) {
     const times = json.jitter.times || json.jitter.values.map((_, i) => i * (1/100));
     createPane("plot-jitter", "Jitter (per-voiced)", 200);
-    Plotly.newPlot("plot-jitter", [{ x: times, y: json.jitter.values, mode: "lines" }], { margin: { t: 10 } });
+    Plotly.newPlot("plot-jitter", [{ x: times, y: json.jitter.values, mode: "lines" }], { margin: { t: 10 }, xaxis: { title:"Time (sec)" } });
     attachPlotlyClick("plot-jitter", "Jitter");
   }
 
@@ -562,8 +563,8 @@ async function uploadToServer(wavBlob) {
     sDiv.innerHTML = "";
     data.syllables.forEach(syl => {
       const p = document.createElement("p");
-      p.textContent = `${syl.text} — ${syl.time}s`;
-      sDiv.appendChild(p);
+      p.textContent = `${syl.text}`;
+      // sDiv.appendChild(p);
     });
 
     // Draw waveform PNG
@@ -582,6 +583,110 @@ async function uploadToServer(wavBlob) {
   }
 }
 
+// vsa
+// let isRecording = false;
+let vowelRecorder = null;
+let chunks = [];
+let vowelData = {}; // store F1-F2 values
 
+const recordBtn = document.getElementById("recordBtn");
+
+// ------------------------------------
+// Start/Stop Recording Logic
+// ------------------------------------
+recordBtn.onclick = async () => {
+    const vowel = document.getElementById("vowel").value;
+
+    // START RECORDING
+    if (!isRecording) {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        vowelRecorder = new MediaRecorder(stream);
+        chunks = [];
+
+        vowelRecorder.ondataavailable = e => chunks.push(e.data);
+
+        vowelRecorder.onstop = async () => {
+            const blob = new Blob(chunks, { type: "audio/wav" });
+            const formData = new FormData();
+
+            formData.append("file", blob, `vowel_${vowel}.wav`);
+            formData.append("vowel", vowel);
+
+            const response = await fetch("http://127.0.0.1:8000/analyze_vowel", {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+            vowelData[vowel] = { F1: data.F1_Hz, F2: data.F2_Hz };
+
+            document.getElementById("resultsBox").textContent =
+                JSON.stringify(vowelData, null, 2);
+
+            plotTriangle();
+        };
+
+        vowelRecorder.start();
+        isRecording = true;
+
+        recordBtn.textContent = "⏹️ Stop Recording";
+        recordBtn.classList.add("recording");
+        document.getElementById("status").textContent = `Recording… Say /${vowel}/`;
+
+        return;
+    }
+
+    // STOP RECORDING
+    vowelRecorder.stop();
+    isRecording = false;
+
+    recordBtn.textContent = "🎙️ Start Recording";
+    recordBtn.classList.remove("recording");
+    document.getElementById("status").textContent = "Processing...";
+};
+
+
+// ------------------------------------
+// Plot the vowel space triangle
+// ------------------------------------
+function plotTriangle() {
+    const vowels = Object.keys(vowelData);
+
+    if (vowels.length < 3) {
+        document.getElementById("status").textContent =
+            "Record all 3 vowels (/a/, /i/, /u/) to plot triangle.";
+        return;
+    }
+
+    const F1 = vowels.map(v => vowelData[v].F1);
+    const F2 = vowels.map(v => vowelData[v].F2);
+
+    const trace = {
+        x: F2,               // F2 on X axis
+        y: F1,               // F1 on Y axis
+        text: vowels,
+        mode: "markers+text",
+        type: "scatter",
+        textposition: "top center",
+        marker: { size: 12 }
+    };
+
+    const triangle = {
+        x: [F2[0], F2[1], F2[2], F2[0]],
+        y: [F1[0], F1[1], F1[2], F1[0]],
+        mode: "lines",
+        line: { dash: "solid" },
+        type: "scatter"
+    };
+
+    const layout = {
+        title: "Vowel Space Area (F1 vs F2)",
+        xaxis: { title: "F2 (Hz)", autorange: "reversed" },
+        yaxis: { title: "F1 (Hz)" }
+    };
+
+    Plotly.newPlot("plot", [trace, triangle], layout);
+}
 
 console.log("main.js loaded");
